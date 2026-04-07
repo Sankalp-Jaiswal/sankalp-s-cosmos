@@ -7,10 +7,10 @@ export async function connectDB() {
     await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 5000,
     });
-    console.log('  ✦ MongoDB connected successfully');
+    console.log('MongoDB connected successfully');
     return mongoose.connection;
   } catch (error) {
-    console.warn(`  ⚠ MongoDB connection failed: ${error.message}`);
+    console.warn(`MongoDB connection failed: ${error.message}`);
     throw error;
   }
 }

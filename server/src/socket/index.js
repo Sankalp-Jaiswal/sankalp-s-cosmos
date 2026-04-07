@@ -3,31 +3,28 @@ import { connectionHandler } from './handlers/connectionHandler.js';
 import { movementHandler } from './handlers/movementHandler.js';
 import { chatHandler } from './handlers/chatHandler.js';
 
-let io;
+var ioInstance;
 
-export function initSocket(httpServer) {
-  io = new Server(httpServer, {
+export function initSocket(server) {
+  ioInstance = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: "*", // allow all for now
       methods: ['GET', 'POST'],
-      credentials: true,
-    },
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    }
   });
 
-  io.on('connection', (socket) => {
-    console.log(`  ➜ Socket connected: ${socket.id}`);
+  ioInstance.on('connection', (s) => {
+    console.log("Someone connected: " + s.id);
 
-    // Register all event handlers
-    connectionHandler(socket, io);
-    movementHandler(socket, io);
-    chatHandler(socket, io);
+    // calling my handlers
+    connectionHandler(s, ioInstance);
+    movementHandler(s, ioInstance);
+    chatHandler(s, ioInstance);
   });
 
-  return io;
+  return ioInstance;
 }
 
 export function getIO() {
-  return io;
+  return ioInstance;
 }

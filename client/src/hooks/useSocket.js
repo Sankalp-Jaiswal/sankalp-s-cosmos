@@ -3,134 +3,122 @@ import { io } from 'socket.io-client';
 import { CONFIG } from '../constants/config';
 import useCosmosStore from '../store/cosmosStore';
 
-let socket = null;
+var s = null;
 
 export function getSocket() {
-  return socket;
+  return s;
 }
 
 export function useSocket() {
-  const socketRef = useRef(null);
-  const {
-    setLocalUser,
-    setRemoteUsers,
-    addRemoteUser,
-    removeRemoteUser,
-    updateRemotePosition,
-    addConnection,
-    removeConnection,
-    addMessage,
-    setSpaceUserCount,
-    setSocketConnected,
-  } = useCosmosStore();
+  const ref = useRef(null);
+  const store = useCosmosStore();
 
   useEffect(() => {
-    // Create socket connection
-    socket = io(CONFIG.SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+    // connecting to the server
+    s = io(CONFIG.SOCKET_URL, {
+      transports: ['websocket', 'polling']
     });
-    socketRef.current = socket;
+    ref.current = s;
 
-    socket.on('connect', () => {
-      console.log('✦ Connected to Virtual Cosmos');
-      setSocketConnected(true);
+    s.on('connect', () => {
+      console.log('Connected!');
+      store.setSocketConnected(true);
     });
 
-    socket.on('disconnect', () => {
-      console.log('✦ Disconnected from Virtual Cosmos');
-      setSocketConnected(false);
+    s.on('disconnect', () => {
+      console.log('Disconnected!');
+      store.setSocketConnected(false);
     });
 
-    // Receive own user data after joining
-    socket.on('user:joined:self', (user) => {
-      setLocalUser(user);
+    // when i join
+    s.on('user:joined:self', (data) => {
+      store.setLocalUser(data);
     });
 
-    // Receive full space state on join
-    socket.on('space:state', ({ users }) => {
-      setRemoteUsers(users);
+    // get all users
+    s.on('space:state', (data) => {
+      store.setRemoteUsers(data.users);
     });
 
-    // New user joined
-    socket.on('user:joined', (user) => {
-      addRemoteUser(user);
+    // someone else joined
+    s.on('user:joined', (user) => {
+      console.log("new user joined:", user.username);
+      store.addRemoteUser(user);
     });
 
-    // User left
-    socket.on('user:left', ({ userId }) => {
-      removeRemoteUser(userId);
+    // someone left
+    s.on('user:left', (data) => {
+      console.log("user left:", data.userId);
+      store.removeRemoteUser(data.userId);
     });
 
-    // Position sync from another user
-    socket.on('position:sync', ({ userId, x, y }) => {
-      updateRemotePosition(userId, x, y);
+    // moving
+    s.on('position:sync', (data) => {
+      store.updateRemotePosition(data.userId, data.x, data.y);
     });
 
-    // Chat connected (proximity)
-    socket.on('chat:connected', ({ roomId, targetUser }) => {
-      addConnection(targetUser.userId, roomId, targetUser);
+    // chatting start
+    s.on('chat:connected', (data) => {
+      store.addConnection(data.targetUser.userId, data.roomId, data.targetUser);
     });
 
-    // Chat disconnected
-    socket.on('chat:disconnected', ({ roomId, targetUserId }) => {
-      removeConnection(targetUserId, roomId);
+    // chatting end
+    s.on('chat:disconnected', (data) => {
+      store.removeConnection(data.targetUserId, data.roomId);
     });
 
-    // Incoming chat message
-    socket.on('chat:message', (message) => {
-      addMessage(message.roomId, message);
+    // got a message
+    s.on('chat:message', (msg) => {
+      store.addMessage(msg.roomId, msg);
     });
 
-    // Space user count
-    socket.on('space:count', ({ count }) => {
-      setSpaceUserCount(count);
+    // update count
+    s.on('space:count', (data) => {
+      store.setSpaceUserCount(data.count);
     });
 
     return () => {
-      socket.disconnect();
-      socket = null;
+      if (s) s.disconnect();
+      s = null;
     };
   }, []);
 
-  const joinCosmos = useCallback((username) => {
-    if (socketRef.current) {
-      socketRef.current.emit('user:join', { username });
+  const join = useCallback((name) => {
+    if (ref.current) {
+      ref.current.emit('user:join', { username: name });
     }
   }, []);
 
-  const emitPosition = useCallback((x, y) => {
-    if (socketRef.current) {
-      socketRef.current.emit('position:update', { x, y });
+  const move = useCallback((x, y) => {
+    if (ref.current) {
+      ref.current.emit('position:update', { x, y });
     }
   }, []);
 
-  const emitProximityEnter = useCallback((targetId) => {
-    if (socketRef.current) {
-      socketRef.current.emit('proximity:enter', { targetId });
+  const enter = useCallback((id) => {
+    if (ref.current) {
+      ref.current.emit('proximity:enter', { targetId: id });
     }
   }, []);
 
-  const emitProximityLeave = useCallback((targetId) => {
-    if (socketRef.current) {
-      socketRef.current.emit('proximity:leave', { targetId });
+  const leave = useCallback((id) => {
+    if (ref.current) {
+      ref.current.emit('proximity:leave', { targetId: id });
     }
   }, []);
 
-  const sendMessage = useCallback((roomId, text) => {
-    if (socketRef.current) {
-      socketRef.current.emit('chat:message', { roomId, text });
+  const send = useCallback((rid, val) => {
+    if (ref.current) {
+      ref.current.emit('chat:message', { roomId: rid, text: val });
     }
   }, []);
 
   return {
-    socket: socketRef,
-    joinCosmos,
-    emitPosition,
-    emitProximityEnter,
-    emitProximityLeave,
-    sendMessage,
+    socket: ref,
+    joinCosmos: join,
+    emitPosition: move,
+    emitProximityEnter: enter,
+    emitProximityLeave: leave,
+    sendMessage: send,
   };
 }

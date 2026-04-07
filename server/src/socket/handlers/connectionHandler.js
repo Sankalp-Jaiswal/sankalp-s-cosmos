@@ -32,7 +32,7 @@ export function connectionHandler(socket, io) {
     // Broadcast updated user count
     io.emit('space:count', { count: roomStore.getUserCount() });
 
-    console.log(`  ✦ ${username} joined the cosmos (${roomStore.getUserCount()} total)`);
+    console.log(`${username} joined the cosmos (${roomStore.getUserCount()} total)`);
   });
 
   // Proximity enter — create shared room for chat
@@ -138,7 +138,7 @@ export function connectionHandler(socket, io) {
     // Notify all users
     io.emit('user:left', { userId: user.userId });
 
-    console.log(`  ✦ ${user.username} left the cosmos`);
+    console.log(`${user.username} left the cosmos`);
 
     // Remove from store
     roomStore.removeUser(socket.id);

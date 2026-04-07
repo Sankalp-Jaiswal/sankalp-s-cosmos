@@ -6,29 +6,24 @@ import app from './src/app.js';
 import { initSocket } from './src/socket/index.js';
 import { connectDB } from './src/config/db.js';
 
-const PORT = process.env.PORT || 4000;
-const httpServer = createServer(app);
+var PORT = process.env.PORT || 4000;
+var httpServer = createServer(app);
 
-// Initialize Socket.IO
+// starting socket here
 initSocket(httpServer);
 
-// Connect to MongoDB and start server
+// connecting database and starting the server
+console.log("Connecting to Database...");
 connectDB()
   .then(() => {
     httpServer.listen(PORT, () => {
-      console.log(`\n  Sankalp's Cosmos Server`);
-      console.log(`  ➜ HTTP:   http://localhost:${PORT}`);
-      console.log(`  ➜ Socket: ws://localhost:${PORT}`);
-      console.log(`  ➜ Env:    ${process.env.NODE_ENV}\n`);
+      console.log("Server is running on port " + PORT);
     });
   })
-  .catch((err) => {
-    console.error('Failed to start server:', err.message);
-    // Start without DB if connection fails (for development)
+  .catch((e) => {
+    console.log("database error occurred: " + e.message);
+    // start anyway for now
     httpServer.listen(PORT, () => {
-      console.log(`\n  Sankalp's Cosmos Server (No DB)`);
-      console.log(`  ➜ HTTP:   http://localhost:${PORT}`);
-      console.log(`  ➜ Socket: ws://localhost:${PORT}`);
-      console.log(`  ⚠ MongoDB not connected — running in-memory only\n`);
+      console.log("Server running without database on port " + PORT);
     });
   });

@@ -1,86 +1,72 @@
 import { create } from 'zustand';
 
-const useCosmosStore = create((set, get) => ({
-  // Local user state
-  localUser: null,
-  
-  // Remote users: Map-like object { [userId]: { username, x, y, color, targetX, targetY } }
-  remoteUsers: {},
-  
-  // Active connections: { [userId]: { roomId, username, color } }
-  activeConnections: {},
-  
-  // Chat rooms: { [roomId]: { messages: [], targetUser: { userId, username, color } } }
-  chatRooms: {},
-  
-  // Currently active chat room
-  activeChatRoomId: null,
-  
-  // Space user count
-  spaceUserCount: 0,
-  
-  // Is entered (past the modal)
-  hasEntered: false,
 
-  // Socket connected state
+const useCosmosStore = create((set, get) => ({
+  localUser: null,  
+  remoteUsers: {},
+  activeConnections: {},
+  chatRooms: {},
+  activeChatRoomId: null,
+  spaceUserCount: 0,
+  hasEntered: false,
   isSocketConnected: false,
 
-  // ─── Actions ──────────────────────────────────
+  setLocalUser: (u) => set({ localUser: u }),
 
-  setLocalUser: (user) => set({ localUser: user }),
-
-  setPosition: (x, y) => set((state) => ({
-    localUser: state.localUser ? { ...state.localUser, x, y } : null,
+  setPosition: (x, y) => set((s) => ({
+    localUser: s.localUser ? { ...s.localUser, x, y } : null,
   })),
 
-  setHasEntered: (val) => set({ hasEntered: val }),
+  setHasEntered: (v) => set({ hasEntered: v }),
 
-  setSocketConnected: (val) => set({ isSocketConnected: val }),
+  setSocketConnected: (v) => set({ isSocketConnected: v }),
 
-  setSpaceUserCount: (count) => set({ spaceUserCount: count }),
+  setSpaceUserCount: (c) => set({ spaceUserCount: c }),
 
-  // Remote users
-  addRemoteUser: (user) => set((state) => ({
+  // add helper for adding users 
+  addRemoteUser: (u) => set((s) => ({
     remoteUsers: {
-      ...state.remoteUsers,
-      [user.userId]: {
-        ...user,
-        targetX: user.x,
-        targetY: user.y,
+      ...s.remoteUsers,
+      [u.userId]: {
+        ...u,
+        targetX: u.x,
+        targetY: u.y,
       },
     },
   })),
 
-  removeRemoteUser: (userId) => set((state) => {
-    const { [userId]: removed, ...rest } = state.remoteUsers;
-    // Also remove any active connection
-    const newConnections = { ...state.activeConnections };
-    delete newConnections[userId];
-    // And remove chat rooms associated
-    const newChatRooms = { ...state.chatRooms };
-    for (const [roomId, room] of Object.entries(newChatRooms)) {
-      if (room.targetUser?.userId === userId) {
-        delete newChatRooms[roomId];
+  removeRemoteUser: (id) => set((s) => {
+    const { [id]: removed, ...rem } = s.remoteUsers;
+    const conns = { ...s.activeConnections };
+    delete conns[id];
+    
+    const rooms = { ...s.chatRooms };
+    for (const [rid, r] of Object.entries(rooms)) {
+      if (r.targetUser?.userId === id) {
+        delete rooms[rid];
       }
     }
+
+    console.log("removing user with id:", id);
+
     return {
-      remoteUsers: rest,
-      activeConnections: newConnections,
-      chatRooms: newChatRooms,
-      activeChatRoomId: state.activeChatRoomId && newChatRooms[state.activeChatRoomId] 
-        ? state.activeChatRoomId 
-        : Object.keys(newChatRooms)[0] || null,
+      remoteUsers: rem,
+      activeConnections: conns,
+      chatRooms: rooms,
+      activeChatRoomId: s.activeChatRoomId && rooms[s.activeChatRoomId] 
+        ? s.activeChatRoomId 
+        : Object.keys(rooms)[0] || null,
     };
   }),
 
-  updateRemotePosition: (userId, x, y) => set((state) => {
-    const user = state.remoteUsers[userId];
-    if (!user) return state;
+  updateRemotePosition: (id, x, y) => set((s) => {
+    const u = s.remoteUsers[id];
+    if (!u) return s;
     return {
       remoteUsers: {
-        ...state.remoteUsers,
-        [userId]: {
-          ...user,
+        ...s.remoteUsers,
+        [id]: {
+          ...u,
           targetX: x,
           targetY: y,
         },
@@ -88,89 +74,90 @@ const useCosmosStore = create((set, get) => ({
     };
   }),
 
-  setRemoteInterpolatedPosition: (userId, x, y) => set((state) => {
-    const user = state.remoteUsers[userId];
-    if (!user) return state;
+  setRemoteInterpolatedPosition: (id, x, y) => set((s) => {
+    const u = s.remoteUsers[id];
+    if (!u) return s;
     return {
       remoteUsers: {
-        ...state.remoteUsers,
-        [userId]: { ...user, x, y },
+        ...s.remoteUsers,
+        [id]: { ...u, x, y },
       },
     };
   }),
 
-  setRemoteUsers: (users) => {
-    const remoteUsers = {};
-    users.forEach((user) => {
-      remoteUsers[user.userId] = {
-        ...user,
-        targetX: user.x,
-        targetY: user.y,
+  // setting all users at once
+  setRemoteUsers: (arr) => {
+    const res = {};
+    arr.forEach((u) => {
+      res[u.userId] = {
+        ...u,
+        targetX: u.x,
+        targetY: u.y,
       };
     });
-    set({ remoteUsers });
+    set({ remoteUsers: res });
   },
 
-  // Connections
-  addConnection: (userId, roomId, targetUser) => set((state) => ({
+  // connection logic
+  addConnection: (id, rid, target) => set((s) => ({
     activeConnections: {
-      ...state.activeConnections,
-      [userId]: { roomId, ...targetUser },
+      ...s.activeConnections,
+      [id]: { roomId: rid, ...target },
     },
     chatRooms: {
-      ...state.chatRooms,
-      [roomId]: state.chatRooms[roomId] || {
+      ...s.chatRooms,
+      [rid]: s.chatRooms[rid] || {
         messages: [],
-        targetUser,
+        targetUser: target,
       },
     },
-    activeChatRoomId: state.activeChatRoomId || roomId,
+    activeChatRoomId: s.activeChatRoomId || rid,
   })),
 
-  removeConnection: (targetUserId, roomId) => set((state) => {
-    const newConnections = { ...state.activeConnections };
-    delete newConnections[targetUserId];
+  removeConnection: (tid, rid) => set((s) => {
+    const cnew = { ...s.activeConnections };
+    delete cnew[tid];
     
-    // Keep chat room messages but mark as disconnected
-    const newChatRooms = { ...state.chatRooms };
-    if (newChatRooms[roomId]) {
-      newChatRooms[roomId] = {
-        ...newChatRooms[roomId],
+    const rnew = { ...s.chatRooms };
+    if (rnew[rid]) {
+      rnew[rid] = {
+        ...rnew[rid],
         disconnected: true,
       };
     }
 
-    // Switch active chat if needed
-    const activeRoomIds = Object.values(newConnections).map(c => c.roomId);
-    const newActiveChatRoomId = activeRoomIds.includes(state.activeChatRoomId)
-      ? state.activeChatRoomId
-      : activeRoomIds[0] || null;
+    const ids = Object.values(cnew).map(c => c.roomId);
+    const act = ids.includes(s.activeChatRoomId)
+      ? s.activeChatRoomId
+      : ids[0] || null;
+
+    console.log("disconnecting from room:", rid);
 
     return {
-      activeConnections: newConnections,
-      chatRooms: newChatRooms,
-      activeChatRoomId: newActiveChatRoomId,
+      activeConnections: cnew,
+      chatRooms: rnew,
+      activeChatRoomId: act,
     };
   }),
 
-  // Chat
-  addMessage: (roomId, message) => set((state) => {
-    const room = state.chatRooms[roomId];
-    if (!room) return state;
+  // chat related
+  addMessage: (rid, msg) => set((s) => {
+    const r = s.chatRooms[rid];
+    if (!r) return s;
     return {
       chatRooms: {
-        ...state.chatRooms,
-        [roomId]: {
-          ...room,
-          messages: [...room.messages, message],
+        ...s.chatRooms,
+        [rid]: {
+          ...r,
+          messages: [...r.messages, msg],
         },
       },
     };
   }),
 
-  setActiveChatRoom: (roomId) => set({ activeChatRoomId: roomId }),
+  setActiveChatRoom: (id) => set({ activeChatRoomId: id }),
 
-  // Get nearby user count
+  // count nearby people
   getNearbyCount: () => {
     return Object.keys(get().activeConnections).length;
   },

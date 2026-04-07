@@ -18,7 +18,7 @@ app.use('/health', healthRouter);
 // Root
 app.get('/', (req, res) => {
   res.json({
-    name: 'Virtual Cosmos API',
+    name: 'Sankalp\'s Cosmos',
     version: '1.0.0',
     status: 'running',
   });
