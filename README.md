@@ -4,7 +4,7 @@ A **2D multiplayer virtual environment** with proximity-based chat — built wit
 
 Move around the cosmos as a stylized astronaut, approach other users, and chat when you're close enough. 
 
-![Sankalp's Cosmos Screenshot](./screenshot-placeholder.png)
+![Sankalp's Cosmos Screenshot](./Sankalp's-cosmos.png)
 
 ---
 
